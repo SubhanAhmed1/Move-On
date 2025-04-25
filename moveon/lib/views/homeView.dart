@@ -1,10 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:moveon/mechanic_data.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:moveon/views/mechanicListView.dart';
 
 class HomePage extends StatefulWidget {
-  
-
   const HomePage({Key? key}) : super(key: key);
 
   @override
@@ -12,11 +10,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String selectedIssue = 'All';
+  String selectedIssue = 'Puncture';
   String selectedVehicle = 'Car';
+  final TextEditingController _priceController = TextEditingController();
 
   final List<String> issues = [
-    'All',
     'Puncture',
     'Tire Change',
     'Flat Tire',
@@ -30,125 +28,133 @@ class _HomePageState extends State<HomePage> {
     'Suzuki',
   ];
 
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri url = Uri.parse('tel:$phoneNumber');
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      throw Exception('Could not launch $url');
-    }
+  void _showPriceModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets.add(
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Enter Your Price',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: _priceController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Price in PKR',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                      final price = _priceController.text.trim();
+                      if (price.isNotEmpty) {
+                        Navigator.pop(context); // close modal
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MechanicListView(
+                              selectedIssue: selectedIssue,
+                              selectedVehicle: selectedVehicle,
+                              price: price,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                child: Text('Find Mechanics',style: TextStyle(color: Colors.white,fontSize: 20),),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF756EF3),
+                  padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 15),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  double _parseDistance(String distanceStr) {
-    try {
-      return double.parse(distanceStr.replaceAll(' km away', '').trim());
-    } catch (e) {
-      return double.infinity; // fallback
-    }
+  @override
+  void dispose() {
+    _priceController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredMechanics = allMechanics.where((mechanic) {
-      final matchIssue = selectedIssue == 'All' || mechanic.issues.contains(selectedIssue);
-      final matchVehicle = selectedVehicle == 'All' || mechanic.vehicleType == selectedVehicle;
-      return matchIssue && matchVehicle;
-    }).toList()
-      ..sort((a, b) => _parseDistance(a.distance).compareTo(_parseDistance(b.distance)));
-
     return Scaffold(
       appBar: AppBar(
+        title: Text('Select Issue & Vehicle'),
         backgroundColor: const Color(0xFF756EF3),
-        title: Text("Hi, Buddy!",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            )),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout),
-            onPressed: () {
-              // TODO: Implement logout
-            },
-          )
-        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: selectedIssue,
-                    items: issues.map((issue) {
-                      return DropdownMenuItem(
-                        value: issue,
-                        child: Text(issue),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedIssue = value!;
-                      });
-                    },
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: selectedVehicle,
-                    items: vehicles.map((vehicle) {
-                      return DropdownMenuItem(
-                        value: vehicle,
-                        child: Text(vehicle),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedVehicle = value!;
-                      });
-                    },
-                  ),
-                ),
-              ],
+            DropdownButtonFormField<String>(
+              value: selectedIssue,
+              items: issues.map((issue) {
+                return DropdownMenuItem(
+                  value: issue,
+                  child: Text(issue),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedIssue = value!;
+                });
+              },
+              decoration: InputDecoration(
+                labelText: 'Select Issue',
+                border: OutlineInputBorder(),
+              ),
             ),
-            SizedBox(height: 10),
-            Expanded(
-              child: filteredMechanics.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No Mechanic Available Nearby',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: filteredMechanics.length,
-                      itemBuilder: (context, index) {
-                        final mechanic = filteredMechanics[index];
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundImage: NetworkImage(mechanic.imageUrl),
-                            ),
-                            title: Text(mechanic.name),
-                            subtitle: Text(
-                              '${mechanic.expertise} • ${mechanic.vehicleType}\n${mechanic.distance}',
-                            ),
-                            isThreeLine: true,
-                            trailing: IconButton(
-                              icon: Icon(Icons.phone, color: Colors.green),
-                              onPressed: () => _makePhoneCall(mechanic.phone),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: selectedVehicle,
+              items: vehicles.map((vehicle) {
+                return DropdownMenuItem(
+                  value: vehicle,
+                  child: Text(vehicle),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedVehicle = value!;
+                });
+              },
+              decoration: InputDecoration(
+                labelText: 'Select Vehicle',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: _showPriceModal,
+              child: Text('Next', style: TextStyle( color: Colors.white),),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF756EF3),
+                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 15),
+              ),
             ),
           ],
         ),
